@@ -1,3 +1,4 @@
-all: write read
+all: write read client
 write:
 read:
+client:

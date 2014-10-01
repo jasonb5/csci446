@@ -1,3 +1,5 @@
 write
 read
+client
+local_file
 *.up
