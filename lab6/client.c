@@ -78,8 +78,7 @@ int main(int argc, char **argv) {
 	}	
 
 	while ((ret = recv(sock, buffer, 2048, 0)) > 0) {
-		printf("%d\n", ret);
-		printf("Writing %d\n", write(fd, buffer, ret));
+		write(fd, buffer, ret);
 	}
 
 	close(fd);
