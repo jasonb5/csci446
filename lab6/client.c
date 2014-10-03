@@ -10,13 +10,14 @@
 #define PORT "80"
 #define PATH "/lab_docs/reset_instructions.pdf"
 #define OUTPUT "local_file"
+#define B_SIZE 2048
 
 int main(int argc, char **argv) {
 	int ret;
 	int fd;
 	int sock;
 	ssize_t len;
-	char buffer[2048];
+	char buffer[B_SIZE];
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
 		
@@ -77,7 +78,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}	
 
-	while ((ret = recv(sock, buffer, 2048, 0)) > 0) {
+	while ((ret = recv(sock, buffer, B_SIZE, 0)) > 0) {
 		write(fd, buffer, ret);
 	}
 
