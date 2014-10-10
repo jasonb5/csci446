@@ -13,6 +13,8 @@
 #define SERVER_PORT "5432"
 #define MAX_LINE 256
 #define MAX_PENDING 5
+#define TIMEOUT_SEC 5
+#define TIMEOUT_USEC 0
 
 int
 main(int argc, char *argv[])
@@ -72,18 +74,22 @@ main(int argc, char *argv[])
 	FD_ZERO(&fds_read);
 	FD_SET(s, &fds_read);
 
-	tv.tv_sec = 5;
-	tv.tv_usec = 0;
+	tv.tv_sec = TIMEOUT_SEC;
+	tv.tv_usec = TIMEOUT_USEC;
 
 	/* Wait for connection, then receive and print text */
 	while(1)
 	{
 		if (select(s+1, &fds_read, NULL, NULL, &tv) <= 0) {
-			printf("timeout\n");
+			printf("Timeout: No connection made within %d seconds\n", 
+				TIMEOUT_SEC + (TIMEOUT_USEC / 1000000));		
+	
 			break;
 		}
 
-		tv.tv_sec = 5;
+		// Reset timeout values
+		tv.tv_sec = TIMEOUT_SEC;
+		tv.tv_usec = TIMEOUT_USEC;
 
 		if ((new_s = accept(s, rp->ai_addr, &(rp->ai_addrlen))) < 0)
 		{

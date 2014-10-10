@@ -12,6 +12,8 @@
 
 #define SERVER_PORT "5432"
 #define MAX_LINE 256
+#define TIMEOUT_SEC 2
+#define TIMEOUT_USEC 0
 
 int
 main(int argc, char *argv[])
@@ -73,24 +75,28 @@ main(int argc, char *argv[])
 	FD_ZERO(&fds_read);
 	FD_SET(STDIN_FILENO, &fds_read);	
 
-	tv.tv_sec = 2;
-	tv.tv_usec = 0;
+	tv.tv_sec = TIMEOUT_SEC;
+	tv.tv_usec = TIMEOUT_USEC;
 
+	// Detect timeout on stdin
 	if (select(STDIN_FILENO+1, &fds_read, NULL, NULL, &tv) <= 0) {
 		close(s);
 
-		return 1;
+		return 0;
 	}
 
 	/* Main loop: get and send lines of text */
 	while (fgets(buf, sizeof(buf), stdin))
 	{
-		tv.tv_sec = 2;	
+		// Reset timeout values
+		tv.tv_sec = TIMEOUT_SEC;
+		tv.tv_usec = TIMEOUT_USEC;	
 			
 		buf[MAX_LINE-1] = '\0';
 		len = strlen(buf) + 1;
 		send(s, buf, len, 0);
 
+		// Detect timeout on stdin
 		if (select(STDIN_FILENO+1, &fds_read, NULL, NULL, &tv) <= 0) {
 			break;
 		}	
