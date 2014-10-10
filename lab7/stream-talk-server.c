@@ -80,6 +80,7 @@ main(int argc, char *argv[])
 	/* Wait for connection, then receive and print text */
 	while(1)
 	{
+		// Detects timeout on socket s accepting connections
 		if (select(s+1, &fds_read, NULL, NULL, &tv) <= 0) {
 			printf("Timeout: No connection made within %d seconds\n", 
 				TIMEOUT_SEC + (TIMEOUT_USEC / 1000000));		
