@@ -1,4 +1,10 @@
-/* This code is an updated version of the sample code from "Computer Networks: A Systems
+/* Jason Boutte
+ * Tyler Parks
+ *
+ * CSCI 446 
+ * Fall 2014
+ *
+ * This code is an updated version of the sample code from "Computer Networks: A Systems
  * Approach," 5th Edition by Larry L. Peterson and Bruce S. Davis. Some code comes from
  * man pages, mostly getaddrinfo(3). */
 #include <stdio.h>
