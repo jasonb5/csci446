@@ -1,3 +1,9 @@
+# Jason Boutte
+# Tyler Parks
+#
+# CSCI 446
+# Fall 2014
+
 CPPFLAGS := -Wall
 
 .PHONY: all
