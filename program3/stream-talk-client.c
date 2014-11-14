@@ -11,23 +11,34 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include "packetErrorSend.h"
+
+#define debug(M, ...) fprintf(stdout, "%s:%d:" M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define MAX_LINE 256
+#define OUTPUT_PATTERN "%s_new"
+#define TIMEOUT_SEC 5
+#define TIMEOUT_USEC 0
 
 int main(int argc, char *argv[]) {
-	struct addrinfo hints;
-	struct addrinfo *rp, *result;
+	int s;
+	int fd;
+	int ret;
+	int len;
 	char *host;
 	char *port;
 	char *file;	
+	int alt_bit;
+	fd_set read_set;
 	char buf[MAX_LINE];
-	int s;
-	int len;
-	int fd;
+	struct addrinfo hints;
+	struct timeval timeout;
+	struct addrinfo *rp, *result;
 
 	// Check for correct number of parameters
 	if (argc == 4) {
@@ -40,6 +51,10 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "usage: %s host port file\n", argv[0]);
 		exit(1);
 	}
+
+	alt_bit = 1;
+
+	FD_ZERO(&read_set);
 
 	/* Translate host name into peer's IP address */
 	memset(&hints, 0, sizeof(hints));
@@ -73,63 +88,75 @@ int main(int argc, char *argv[]) {
 
 	freeaddrinfo(result);
 
-	// Send server file being requested
-	if (send(s, file, strlen(file), 0) == -1) {
-		perror("stream-talk-client: send");
-		close(s);
-		exit(1);
-	}
+	FD_SET(s, &read_set);
 
-	// Wait for server response
-	if (recv(s, buf, sizeof(buf), 0) == -1) {
-		perror("stream-talk-client: recv");
-		close(s);
-		exit(1);
-	}
+	alt_bit = 0;
 
-	// Check for server error
-	if (atoi(buf) == 1) {
-		fprintf(stderr, "Server Error: Unable to access file '%s'\n", file);
-		close(s);
-		exit(1);
-	}
+	sprintf(buf, "%d%s", alt_bit, file); 	
 
-	sprintf(buf, "%s", file);
-	
-	// Open local file. Create if doesn't exist, overwrite if
-	// it exists
-	if ((fd = open(buf, O_CREAT | O_TRUNC | O_WRONLY, S_IWUSR | S_IRUSR)) == -1) {
-		perror("stream-talk-client: open");
-		close(s);
-		exit(1);
-	}
+	debug("Requesting '%s' sending %s length %d", file, buf, (int)strlen(buf));
 
-	sprintf(buf, "0");
-
-	// Notify server we're ready to receive data
-	if (send(s, buf, strlen(buf), 0) == -1) {
-		perror("stream-talk-client: send");
-		close(fd);
-		close(s);
-		exit(1);
-	}
-
-	// Receive file from server
-	while ((len = recv(s, buf, sizeof(buf), 0)) > 0) {
-		// Write contents of buf	
-		if (write(fd, buf, len) == -1) {
-			perror("stream-talk-client: write");
-			close(fd);
-			close(s);
-			exit(1);
+	// Send server requested filename
+	do {
+		if ((ret = packetErrorSend(s, buf, strlen(buf), 0)) == -1) {
+			break;
 		}
+
+		timeout.tv_sec = TIMEOUT_SEC;
+		timeout.tv_usec = TIMEOUT_USEC;
+
+		ret = select(s+1, &read_set, NULL, NULL, &timeout);
+
+		if (ret == 0) {
+			continue;
+		} else if (ret == -1) {
+			break;
+		}
+
+		if ((ret = recv(s, buf, sizeof(buf), 0)) == -1) {
+			break;
+		}
+		
+		buf[ret] = '\0';
+
+		debug("Received ACK %s length %d", buf, ret);
+
+		if (alt_bit == atoi(&buf[0])) {
+			debug("Matching alt bit");
+			break;
+		}
+	} while (1);
+
+	if (ret == -1) {
+		close(s);
+		exit(1);
+	}	
+
+	debug("Waiting for server status");
+
+	// Wait for server status 
+	if ((recv(s, buf, sizeof(buf), 0)) == -1) {
+		close(s);
+		exit(1);
+	}	
+
+	alt_bit = atoi(&buf[0]);
+
+	if (buf[1] == 1) {
+		fprintf(stdout, "Server Error opening file\n");
+		// Server failed to open file
+		close(s);
+		exit(1);
 	}
 
-	// Shutdown socket
-	shutdown(s, SHUT_RDWR);
+	sprintf(buf, "%d", alt_bit);
 
-	// Cleanup
-	close(fd);
+	// Acknowledg 
+	if (packetErrorSend(s, buf, strlen(buf), 0) == -1) {
+		close(s);
+		exit(1);
+	}
+
 
 	close(s);
 

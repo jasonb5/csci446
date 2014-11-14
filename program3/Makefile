@@ -13,11 +13,15 @@ LDFLAGS := -L.
 
 LDLIBS := -lpacketErrorSend
 
+TEST_FILE := program3.pdf
+
 .PHONY: all
 all: $(CLIENT) $(SERVER)
 
 run:
-	./$(SERVER) 10000 && ./$(CLIENT) 127.0.0.1 10000 sample  
+	if [ -a $(TEST_FILE)_new ]; then rm $(TEST_FILE)_new; fi;
+	./$(SERVER) 10000 & 
+	./$(CLIENT) 127.0.0.1 10000 $(TEST_FILE)
 
 $(CLIENT): stream-talk-client.c
 	$(CC) $(CPPFLAGS) $? -o $@ $(LDFLAGS) $(LDLIBS)
