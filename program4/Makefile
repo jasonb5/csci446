@@ -1,5 +1,7 @@
 CFLAGS := -Wall
 
+LDFLAGS := -lpcap
+
 packets:
 
 clean:
