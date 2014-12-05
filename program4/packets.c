@@ -12,8 +12,9 @@
 #include <arpa/inet.h>
 #include <netinet/ether.h>
 
+#define TIMEOUT_MS 30000
+
 // https://en.wikipedia.org/wiki/EtherType 
-#define debug(M, ...) fprintf(stderr, "%s:%d: " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define IPv4 0x0800 // Ethertype for IPv4
 #define IPv6 0x86DD // Ethertype for IPv6
 
@@ -29,6 +30,7 @@
 int read_2bytes(const u_char *buf);
 
 int main(int argc, char **argv) {
+	int use_file = 0;
 	pcap_t *handle; // pcap handle used to read packets
 	char err_buf[PCAP_ERRBUF_SIZE]; // pcap error buffer
 
@@ -41,6 +43,8 @@ int main(int argc, char **argv) {
 
 	// Open pcap handle based on provided arguments
 	if (argc > 1) {
+		use_file = 1;
+
 		// Attempts to open file provided as first argument
 		handle = pcap_open_offline(argv[1], err_buf);
 
@@ -54,6 +58,8 @@ int main(int argc, char **argv) {
 	} else {
 		char *dev = NULL;
 
+		use_file = 0;
+
 		// Gets the default device
 		dev = pcap_lookupdev(err_buf);
 
@@ -64,7 +70,7 @@ int main(int argc, char **argv) {
 		}
 
 		// Open pcap handle to start capturing packets from interface	
-		handle = pcap_open_live(dev, BUFSIZ, 1, 0, err_buf);
+		handle = pcap_open_live(dev, BUFSIZ, 1, TIMEOUT_MS, err_buf);
 
 		if (handle == NULL) {
 			error("Device open error:\n%s\n", err_buf);		
@@ -75,6 +81,7 @@ int main(int argc, char **argv) {
 		msg("Capturing on interface '%s'\n", dev);
 	}	
 
+	int ret;
 	int port; // Stores port value
 	char *mac; // Used to store mac address in string form
 	int ip_proto; // Holds ip protocol id
@@ -87,7 +94,20 @@ int main(int argc, char **argv) {
 	const u_char *pkt, *pkt_index; // Data buffer and index
 
 	// Iterate through ethernet packets
-	while (pcap_next_ex(handle, &hdr, &pkt) >= 0) {
+	while (1) {
+		ret = pcap_next_ex(handle, &hdr, &pkt);
+
+		// Check for errors
+		if (ret == 0 && !use_file) {
+			error("Live capture timeout expired\n");
+			break;
+		} else if (ret == -1) {
+			error("Error reading packet\n");
+			break;
+		} else if (ret == -2) {
+			break;
+		}
+
 		// Sets pointer to beginning of packet data
 		pkt_index	= pkt;
 
